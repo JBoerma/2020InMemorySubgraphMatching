@@ -6,6 +6,7 @@
 #include <future>
 #include <thread>
 #include <fstream>
+#include <sys/stat.h>
 
 #include "matchingcommand.h"
 #include "graph/graph.h"
@@ -88,6 +89,7 @@ int main(int argc, char** argv) {
     std::string input_order_num = command.getOrderNum();
     std::string input_distribution_file_path = command.getDistributionFilePath();
     std::string input_csr_file_path = command.getCSRFilePath();
+    std::string input_performance_results_file_path = command.getPerformanceResultsFilePath();
     /**
      * Output the command line information.
      */
@@ -102,6 +104,7 @@ int main(int argc, char** argv) {
     std::cout << "\tTime Limit (seconds): " << input_time_limit << std::endl;
     std::cout << "\tOrder Num: " << input_order_num << std::endl;
     std::cout << "\tDistribution File Path: " << input_distribution_file_path << std::endl;
+    std::cout << "\tPerformance Results File Path: " << input_performance_results_file_path << std::endl;
     std::cout << "--------------------------------------------------------------------" << std::endl;
 
     /**
@@ -399,6 +402,7 @@ int main(int argc, char** argv) {
     std::cout << "--------------------------------------------------------------------" << std::endl;
     double preprocessing_time_in_ns = filter_vertices_time_in_ns + build_table_time_in_ns + generate_query_plan_time_in_ns;
     double total_time_in_ns = preprocessing_time_in_ns + enumeration_time_in_ns;
+    double per_call_count_time = enumeration_time_in_ns / (call_count == 0 ? 1 : call_count);
 
     printf("Load graphs time (seconds): %.4lf\n", NANOSECTOSEC(load_graphs_time_in_ns));
     printf("Filter vertices time (seconds): %.4lf\n", NANOSECTOSEC(filter_vertices_time_in_ns));
@@ -410,7 +414,67 @@ int main(int argc, char** argv) {
     printf("Memory cost (MB): %.4lf\n", BYTESTOMB(memory_cost_in_bytes));
     printf("#Embeddings: %zu\n", embedding_count);
     printf("Call Count: %zu\n", call_count);
-    printf("Per Call Count Time (nanoseconds): %.4lf\n", enumeration_time_in_ns / (call_count == 0 ? 1 : call_count));
+    printf("Per Call Count Time (nanoseconds): %.4lf\n", per_call_count_time);
     std::cout << "End." << std::endl;
+
+    // neat trick from https://stackoverflow.com/questions/4316442/stdofstream-check-if-file-exists-before-writing
+    struct stat buf;
+    bool tsv_exists = stat(input_performance_results_file_path.c_str(), &buf) != -1; 
+
+    std::ofstream file;
+    if (tsv_exists) {
+        file.open(input_performance_results_file_path, std::ios::out | std::ios::app);
+    } else {
+        file.open(input_performance_results_file_path, std::ios::out);
+        file 
+            << "input_query_graph_file" << "\t"
+            << "input_data_graph_file" << "\t"
+            << "input_filter_type" << "\t"
+            << "input_order_type" << "\t"
+            << "input_engine_type" << "\t"
+            << "input_max_embedding_num" << "\t"
+            << "input_time_limit" << "\t"
+            << "input_order_num" << "\t"
+            << "input_distribution_file_path" << "\t"
+            << "input_csr_file_path" << "\t";
+        file
+            << "load_graphs_time_in_ns" << "\t"
+            << "filter_vertices_time_in_ns" << "\t"
+            << "build_table_time_in_ns" << "\t"
+            << "generate_query_plan_time_in_ns" << "\t"
+            << "enumeration_time_in_ns" << "\t"
+            << "preprocessing_time_in_ns" << "\t"
+            << "total_time_in_ns" << "\t"
+            << "memory_cost_in_bytes" << "\t"
+            << "embedding_count" << "\t"
+            << "call_count" << "\t" 
+            << "per_call_count_time" << "\n";
+    }
+
+    file
+        << input_query_graph_file << "\t"
+        << input_data_graph_file << "\t"
+        << input_filter_type << "\t"
+        << input_order_type << "\t"
+        << input_engine_type << "\t"
+        << input_max_embedding_num << "\t"
+        << input_time_limit << "\t"
+        << input_order_num << "\t"
+        << input_distribution_file_path << "\t"
+        << input_csr_file_path << "\t";
+    file.setf(std::ios::fixed, std::ios::floatfield);
+    file
+        << load_graphs_time_in_ns << "\t"
+        << filter_vertices_time_in_ns << "\t"
+        << build_table_time_in_ns << "\t"
+        << generate_query_plan_time_in_ns << "\t"
+        << enumeration_time_in_ns << "\t"
+        << preprocessing_time_in_ns << "\t"
+        << total_time_in_ns << "\t"
+        << memory_cost_in_bytes << "\t"
+        << embedding_count << "\t"
+        << call_count << "\t" 
+        << per_call_count_time << "\n";
+
     return 0;
 }
