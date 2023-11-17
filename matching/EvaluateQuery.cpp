@@ -106,7 +106,7 @@ void EvaluateQuery::generateBN(const Graph *query_graph, ui *order, ui **&bn, ui
     }
 }
 
-size_t
+evaluation_result
 EvaluateQuery::exploreGraph(const Graph *data_graph, const Graph *query_graph, Edges ***edge_matrix, ui **candidates,
                             ui *candidates_count, ui *order, ui *pivot, size_t output_limit_num, size_t &call_count) {
     // Generate the bn.
@@ -129,6 +129,7 @@ EvaluateQuery::exploreGraph(const Graph *data_graph, const Graph *query_graph, E
     int cur_depth = 0;
     int max_depth = query_graph->getVerticesCount();
     VertexID start_vertex = order[0];
+    size_t visits_cnt = 0;
 
     idx[cur_depth] = 0;
     idx_count[cur_depth] = candidates_count[start_vertex];
@@ -142,6 +143,7 @@ EvaluateQuery::exploreGraph(const Graph *data_graph, const Graph *query_graph, E
             ui valid_idx = valid_candidate_idx[cur_depth][idx[cur_depth]];
             VertexID u = order[cur_depth];
             VertexID v = candidates[u][valid_idx];
+            visits_cnt += 1;
 
             embedding[u] = v;
             idx_embedding[u] = valid_idx;
@@ -178,7 +180,7 @@ EvaluateQuery::exploreGraph(const Graph *data_graph, const Graph *query_graph, E
                   visited_vertices,
                   bn, bn_count);
 
-    return embedding_cnt;
+    return {embedding_cnt, visits_cnt};
 }
 
 void
@@ -279,7 +281,7 @@ void EvaluateQuery::releaseBuffer(ui query_vertices_num, ui *idx, ui *idx_count,
     delete[] bn;
 }
 
-size_t
+evaluation_result
 EvaluateQuery::LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***edge_matrix, ui **candidates,
                     ui *candidates_count,
                     ui *order, size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec) {
@@ -312,6 +314,7 @@ EvaluateQuery::LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***
     int cur_depth = 0;
     int max_depth = query_graph->getVerticesCount();
     VertexID start_vertex = order[0];
+    size_t visits_cnt = 0;
 
     idx[cur_depth] = 0;
     idx_count[cur_depth] = candidates_count[start_vertex];
@@ -337,6 +340,7 @@ EvaluateQuery::LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***
             ui valid_idx = valid_candidate_idx[cur_depth][idx[cur_depth]];
             VertexID u = order[cur_depth];
             VertexID v = candidates[u][valid_idx];
+            visits_cnt += 1;
 
             if (visited_vertices[v]) {
                 idx[cur_depth] += 1;
@@ -398,7 +402,7 @@ EvaluateQuery::LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***
             double t = timer.elapsed();
             if (t >= time_limit_in_sec) {
                 std::cout << "OurSGM time out! " << t << std::endl;
-                return embedding_cnt;
+                return {embedding_cnt, visits_cnt};
             }
         }
 
@@ -465,7 +469,7 @@ EvaluateQuery::LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***
     delete[] qfliter_bsr_graph_;
 #endif
 
-    return embedding_cnt;
+    return {embedding_cnt, visits_cnt};
 }
 
 void EvaluateQuery::generateValidCandidateIndex(ui depth, ui *idx_embedding, ui *idx_count, ui **valid_candidate_index,
@@ -594,7 +598,7 @@ void EvaluateQuery::generateValidCandidateIndex(ui depth, ui *idx_embedding, ui 
 #endif
 }
 
-size_t EvaluateQuery::exploreGraphQLStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates,
+evaluation_result EvaluateQuery::exploreGraphQLStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates,
                                           ui *candidates_count, ui *order,
                                           size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec) {
     Timer timer;
@@ -602,6 +606,7 @@ size_t EvaluateQuery::exploreGraphQLStyle(const Graph *data_graph, const Graph *
     int cur_depth = 0;
     int max_depth = query_graph->getVerticesCount();
     VertexID start_vertex = order[0];
+    size_t visits_cnt = 0;
 
     // Generate the bn.
     ui **bn;
@@ -662,7 +667,8 @@ size_t EvaluateQuery::exploreGraphQLStyle(const Graph *data_graph, const Graph *
         while (idx[cur_depth] < idx_count[cur_depth]) {
             VertexID u = order[cur_depth];
             VertexID v = valid_candidate[cur_depth][idx[cur_depth]];
-            // TODO(jboerma) count this as a visit, count
+            visits_cnt += 1;
+
             embedding[u] = v;
             visited_vertices[v] = true;
             idx[cur_depth] += 1;
@@ -684,7 +690,7 @@ size_t EvaluateQuery::exploreGraphQLStyle(const Graph *data_graph, const Graph *
             double t = timer.elapsed();
             if (t >= time_limit_in_sec) {
                 std::cout << "OurSGM time out! " << t << std::endl;
-                return embedding_cnt;
+                return {embedding_cnt, visits_cnt};
             }
         }
 
@@ -710,7 +716,7 @@ size_t EvaluateQuery::exploreGraphQLStyle(const Graph *data_graph, const Graph *
     delete[] bn;
     delete[] valid_candidate;
 
-    return embedding_cnt;
+    return {embedding_cnt, visits_cnt};
 }
 
 void EvaluateQuery::generateValidCandidates(const Graph *data_graph, ui depth, ui *embedding, ui *idx_count,
@@ -743,7 +749,7 @@ void EvaluateQuery::generateValidCandidates(const Graph *data_graph, ui depth, u
     }
 }
 
-size_t EvaluateQuery::exploreQuickSIStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates,
+evaluation_result EvaluateQuery::exploreQuickSIStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates,
                                           ui *candidates_count, ui *order,
                                           ui *pivot, size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec) {
     Timer timer;
@@ -752,6 +758,7 @@ size_t EvaluateQuery::exploreQuickSIStyle(const Graph *data_graph, const Graph *
     int cur_depth = 0;
     int max_depth = query_graph->getVerticesCount();
     VertexID start_vertex = order[0];
+    size_t visits_cnt = 0;
 
     // Generate the bn.
     ui **bn;
@@ -786,6 +793,8 @@ size_t EvaluateQuery::exploreQuickSIStyle(const Graph *data_graph, const Graph *
         while (idx[cur_depth] < idx_count[cur_depth]) {
             VertexID u = order[cur_depth];
             VertexID v = valid_candidate[cur_depth][idx[cur_depth]];
+            visits_cnt += 1;
+
             embedding[u] = v;
             visited_vertices[v] = true;
             idx[cur_depth] += 1;
@@ -807,7 +816,7 @@ size_t EvaluateQuery::exploreQuickSIStyle(const Graph *data_graph, const Graph *
             double t = timer.elapsed();
             if (t >= time_limit_in_sec) {
                 std::cout << "OurSGM time out! " << t << std::endl;
-                return embedding_cnt;
+                return {embedding_cnt, visits_cnt};
             }
         }
 
@@ -833,7 +842,7 @@ size_t EvaluateQuery::exploreQuickSIStyle(const Graph *data_graph, const Graph *
     delete[] bn;
     delete[] valid_candidate;
 
-    return embedding_cnt;
+    return {embedding_cnt, visits_cnt};
 }
 
 void EvaluateQuery::generateValidCandidates(const Graph *query_graph, const Graph *data_graph, ui depth, ui *embedding,
@@ -874,7 +883,7 @@ void EvaluateQuery::generateValidCandidates(const Graph *query_graph, const Grap
     }
 }
 
-size_t EvaluateQuery::exploreDPisoStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
+evaluation_result EvaluateQuery::exploreDPisoStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
                                         Edges ***edge_matrix, ui **candidates, ui *candidates_count,
                                         ui **weight_array, ui *order, size_t output_limit_num,
                                         size_t &call_count, size_t time_limit_in_sec) {
@@ -916,10 +925,13 @@ size_t EvaluateQuery::exploreDPisoStyle(const Graph *data_graph, const Graph *qu
 #endif
 
     VertexID start_vertex = order[0];
+    size_t visits_cnt = 0;
     std::vector<dpiso_min_pq> vec_rank_queue;
 
     for (ui i = 0; i < candidates_count[start_vertex]; ++i) {
         VertexID v = candidates[start_vertex][i];
+        visits_cnt += 1;
+
         embedding[start_vertex] = v;
         idx_embedding[start_vertex] = i;
         visited_vertices[v] = true;
@@ -1007,7 +1019,7 @@ size_t EvaluateQuery::exploreDPisoStyle(const Graph *data_graph, const Graph *qu
                 double t = timer.elapsed();
                 if (t >= time_limit_in_sec) {
                     std::cout << "OurSGM time out! " << t << std::endl;
-                    return embedding_cnt;
+                    return {embedding_cnt, visits_cnt};
                 }
             }
 
@@ -1036,7 +1048,7 @@ size_t EvaluateQuery::exploreDPisoStyle(const Graph *data_graph, const Graph *qu
                   visited_vertices,
                   bn, bn_count);
 
-    return embedding_cnt;
+    return {embedding_cnt, visits_cnt};
 }
 
 void EvaluateQuery::updateExtendableVertex(ui *idx_embedding, ui *idx_count, ui **valid_candidate_index,
@@ -1123,7 +1135,7 @@ void EvaluateQuery::computeAncestor(const Graph *query_graph, TreeNode *tree, Ve
     }
 }
 
-size_t EvaluateQuery::exploreDPisoRecursiveStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
+evaluation_result EvaluateQuery::exploreDPisoRecursiveStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
                                                  Edges ***edge_matrix, ui **candidates, ui *candidates_count,
                                                  ui **weight_array, ui *order, size_t output_limit_num,
                                                  size_t &call_count) {
@@ -1159,9 +1171,12 @@ size_t EvaluateQuery::exploreDPisoRecursiveStyle(const Graph *data_graph, const 
     std::unordered_map<VertexID, VertexID> reverse_embedding;
     reverse_embedding.reserve(MAXIMUM_QUERY_GRAPH_SIZE * 2);
     VertexID start_vertex = order[0];
+    size_t visits_cnt = 0;
 
     for (ui i = 0; i < candidates_count[start_vertex]; ++i) {
         VertexID v = candidates[start_vertex][i];
+        visits_cnt += 1;
+
         embedding[start_vertex] = v;
         idx_embedding[start_vertex] = i;
         visited_vertices[v] = true;
@@ -1171,7 +1186,7 @@ size_t EvaluateQuery::exploreDPisoRecursiveStyle(const Graph *data_graph, const 
         exploreDPisoBacktrack(max_depth, 1, start_vertex, tree, idx_embedding, embedding, reverse_embedding,
                               visited_vertices, idx_count, valid_candidate_idx, edge_matrix,
                               ancestors, dpiso_min_pq(extendable_vertex_compare), weight_array, temp_buffer, extendable,
-                              candidates, embedding_cnt,
+                              candidates, visits_cnt, embedding_cnt,
                               call_count, nullptr);
 
         visited_vertices[v] = false;
@@ -1183,7 +1198,7 @@ size_t EvaluateQuery::exploreDPisoRecursiveStyle(const Graph *data_graph, const 
                   visited_vertices,
                   bn, bn_count);
 
-    return embedding_cnt;
+    return {embedding_cnt, visits_cnt};
 }
 
 std::bitset<MAXIMUM_QUERY_GRAPH_SIZE>
@@ -1193,7 +1208,7 @@ EvaluateQuery::exploreDPisoBacktrack(ui max_depth, ui depth, VertexID mapped_ver
                                      Edges ***edge_matrix,
                                      std::vector<std::bitset<MAXIMUM_QUERY_GRAPH_SIZE>> &ancestors,
                                      dpiso_min_pq rank_queue, ui **weight_array, ui *&temp_buffer, ui *extendable,
-                                     ui **candidates, size_t &embedding_count, size_t &call_count,
+                                     ui **candidates, size_t &visits_cnt, size_t &embedding_count, size_t &call_count,
                                      const Graph *query_graph) {
     // Compute extendable vertex.
     TreeNode &node = tree[mapped_vertex];
@@ -1226,6 +1241,7 @@ EvaluateQuery::exploreDPisoBacktrack(ui max_depth, ui depth, VertexID mapped_ver
         for (ui i = 0; i < idx_count[u]; ++i) {
             ui valid_index = valid_candidate_index[u][i];
             VertexID v = candidates[u][valid_index];
+            visits_cnt += 1;
 
             if (!visited_vertices[v]) {
                 embedding[u] = v;
@@ -1238,7 +1254,7 @@ EvaluateQuery::exploreDPisoBacktrack(ui max_depth, ui depth, VertexID mapped_ver
                                                      reverse_embedding, visited_vertices, idx_count,
                                                      valid_candidate_index, edge_matrix,
                                                      ancestors, rank_queue, weight_array, temp_buffer, extendable,
-                                                     candidates, embedding_count,
+                                                     candidates, visits_cnt, embedding_count,
                                                      call_count, query_graph);
                 } else {
                     embedding_count += 1;
@@ -1265,7 +1281,7 @@ EvaluateQuery::exploreDPisoBacktrack(ui max_depth, ui depth, VertexID mapped_ver
     }
 }
 
-size_t
+evaluation_result
 EvaluateQuery::exploreCECIStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree, ui **candidates,
                                 ui *candidates_count,
                                 std::vector<std::unordered_map<VertexID, std::vector<VertexID>>> &TE_Candidates,
@@ -1298,6 +1314,7 @@ EvaluateQuery::exploreCECIStyle(const Graph *data_graph, const Graph *query_grap
     size_t embedding_cnt = 0;
     int cur_depth = 0;
     VertexID start_vertex = order[0];
+    size_t visits_cnt = 0;
 
     idx[cur_depth] = 0;
     idx_count[cur_depth] = candidates_count[start_vertex];
@@ -1318,6 +1335,7 @@ EvaluateQuery::exploreCECIStyle(const Graph *data_graph, const Graph *query_grap
         while (idx[cur_depth] < idx_count[cur_depth]) {
             VertexID u = order[cur_depth];
             VertexID v = valid_candidates[cur_depth][idx[cur_depth]];
+            visits_cnt += 1;
             idx[cur_depth] += 1;
 
             if (visited_vertices[v]) {
@@ -1365,7 +1383,7 @@ EvaluateQuery::exploreCECIStyle(const Graph *data_graph, const Graph *query_grap
             double t = timer.elapsed();
             if (t >= time_limit_in_sec) {
                 std::cout << "OurSGM time out! " << t << std::endl;
-                return embedding_cnt;
+                return {embedding_cnt, visits_cnt};
             }
         }
 
@@ -1401,7 +1419,7 @@ EvaluateQuery::exploreCECIStyle(const Graph *data_graph, const Graph *query_grap
     }
     delete[] valid_candidates;
 
-    return embedding_cnt;
+    return {embedding_cnt, visits_cnt};
 }
 
 void EvaluateQuery::generateValidCandidates(ui depth, ui *embedding, ui *idx_count, ui **valid_candidates, ui *order,

@@ -29,33 +29,38 @@ static const auto extendable_vertex_compare = [](std::pair<std::pair<VertexID, u
 typedef std::priority_queue<std::pair<std::pair<VertexID, ui>, ui>, std::vector<std::pair<std::pair<VertexID, ui>, ui>>,
         decltype(extendable_vertex_compare)> dpiso_min_pq;
 
+struct evaluation_result {
+    size_t embedding_count;
+    size_t visit_count;
+};
+
 class EvaluateQuery {
 public:
-    static size_t exploreGraph(const Graph *data_graph, const Graph *query_graph, Edges ***edge_matrix, ui **candidates,
+    static evaluation_result exploreGraph(const Graph *data_graph, const Graph *query_graph, Edges ***edge_matrix, ui **candidates,
                                   ui *candidates_count, ui *order, ui *pivot, size_t output_limit_num, size_t &call_count);
 
-    static size_t LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***edge_matrix, ui **candidates, ui *candidates_count,
+    static evaluation_result LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***edge_matrix, ui **candidates, ui *candidates_count,
                            ui *order, size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec);
 
-    static size_t
+    static evaluation_result
     exploreGraphQLStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates, ui *candidates_count, ui *order,
                             size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec);
 
-    static size_t
+    static evaluation_result
     exploreQuickSIStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates, ui *candidates_count, ui *order,
                             ui *pivot, size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec);
 
-    static size_t exploreDPisoStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
+    static evaluation_result exploreDPisoStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
                                     Edges ***edge_matrix, ui **candidates, ui *candidates_count,
                                     ui **weight_array, ui *order, size_t output_limit_num,
                                     size_t &call_count, size_t time_limit_in_sec);
 
-    static size_t exploreDPisoRecursiveStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
+    static evaluation_result exploreDPisoRecursiveStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
                                              Edges ***edge_matrix, ui **candidates, ui *candidates_count,
                                              ui **weight_array, ui *order, size_t output_limit_num,
                                              size_t &call_count);
 
-    static size_t exploreCECIStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree, ui **candidates,
+    static evaluation_result exploreCECIStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree, ui **candidates,
                                       ui *candidates_count,
                                       std::vector<std::unordered_map<VertexID, std::vector<VertexID>>> &TE_Candidates,
                                       std::vector<std::vector<std::unordered_map<VertexID, std::vector<VertexID>>>> &NTE_Candidates,
@@ -127,7 +132,7 @@ private:
                                                      Edges ***edge_matrix,
                                                      std::vector<std::bitset<MAXIMUM_QUERY_GRAPH_SIZE>> &ancestors,
                                                      dpiso_min_pq rank_queue, ui **weight_array, ui *&temp_buffer, ui *extendable,
-                                                     ui **candidates, size_t &embedding_count, size_t &call_count,
+                                                     ui **candidates, size_t &visits_cnt, size_t &embedding_count, size_t &call_count,
                                                      const Graph *query_graph);
 };
 

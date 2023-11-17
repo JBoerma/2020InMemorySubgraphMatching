@@ -27,7 +27,7 @@ size_t enumerate(Graph* data_graph, Graph* query_graph, Edges*** edge_matrix, ui
 
     auto start = std::chrono::high_resolution_clock::now();
     size_t call_count = 0;
-    size_t embedding_count = EvaluateQuery::LFTJ(data_graph, query_graph, edge_matrix, candidates, candidates_count,
+    auto result = EvaluateQuery::LFTJ(data_graph, query_graph, edge_matrix, candidates, candidates_count,
                                matching_order, output_limit, call_count, time_limit_in_sec);
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -41,11 +41,11 @@ size_t enumerate(Graph* data_graph, Graph* query_graph, Edges*** edge_matrix, ui
     }
 #endif
     printf("Spectrum Order %u Enumerate time (seconds): %.4lf\n", order_id, NANOSECTOSEC(enumeration_time_in_ns));
-    printf("Spectrum Order %u #Embeddings: %zu\n", order_id, embedding_count);
+    printf("Spectrum Order %u #Embeddings: %zu\n", order_id, result.embedding_count);
     printf("Spectrum Order %u Call Count: %zu\n", order_id, call_count);
     printf("Spectrum Order %u Per Call Count Time (nanoseconds): %.4lf\n", order_id, enumeration_time_in_ns / (call_count == 0 ? 1 : call_count));
 
-    return embedding_count;
+    return result.embedding_count;
 }
 
 void spectrum_analysis(Graph* data_graph, Graph* query_graph, Edges*** edge_matrix, ui** candidates, ui* candidates_count,
@@ -66,7 +66,7 @@ void spectrum_analysis(Graph* data_graph, Graph* query_graph, Edges*** edge_matr
         do {
             status = future.wait_for(std::chrono::seconds(time_limit_in_sec));
             if (status == std::future_status::deferred) {
-                std::cout << "Deferred\n";
+                std::cout << "Deferred\n" << endl;
                 exit(-1);
             } else if (status == std::future_status::timeout) {
 #ifdef SPECTRUM
@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
     std::cout << "-----" << std::endl;
     std::cout << "Enumerate..." << std::endl;
     size_t output_limit = 0;
-    size_t embedding_count = 0;
+    evaluation_result eval_result = evaluation_result{};
     if (input_max_embedding_num == "MAX") {
         output_limit = std::numeric_limits<size_t>::max();
     }
@@ -349,24 +349,24 @@ int main(int argc, char** argv) {
     start = std::chrono::high_resolution_clock::now();
 
     if (input_engine_type == "EXPLORE") {
-        embedding_count = EvaluateQuery::exploreGraph(data_graph, query_graph, edge_matrix, candidates,
+        eval_result = EvaluateQuery::exploreGraph(data_graph, query_graph, edge_matrix, candidates,
                                                       candidates_count, matching_order, pivots, output_limit, call_count);
     } else if (input_engine_type == "LFTJ") {
-        embedding_count = EvaluateQuery::LFTJ(data_graph, query_graph, edge_matrix, candidates, candidates_count,
+        eval_result = EvaluateQuery::LFTJ(data_graph, query_graph, edge_matrix, candidates, candidates_count,
                                               matching_order, output_limit, call_count, time_limit);
     } else if (input_engine_type == "GQL") {
-        embedding_count = EvaluateQuery::exploreGraphQLStyle(data_graph, query_graph, candidates, candidates_count,
+        eval_result = EvaluateQuery::exploreGraphQLStyle(data_graph, query_graph, candidates, candidates_count,
                                                              matching_order, output_limit, call_count, time_limit);
     } else if (input_engine_type == "QSI") {
-        embedding_count = EvaluateQuery::exploreQuickSIStyle(data_graph, query_graph, candidates, candidates_count,
+        eval_result = EvaluateQuery::exploreQuickSIStyle(data_graph, query_graph, candidates, candidates_count,
                                                              matching_order, pivots, output_limit, call_count, time_limit);
     }
     else if (input_engine_type == "DPiso") {
-        embedding_count = EvaluateQuery::exploreDPisoStyle(data_graph, query_graph, dpiso_tree,
+        eval_result = EvaluateQuery::exploreDPisoStyle(data_graph, query_graph, dpiso_tree,
                                                            edge_matrix, candidates, candidates_count,
                                                            weight_array, dpiso_order, output_limit,
                                                            call_count, time_limit);
-//        embedding_count = EvaluateQuery::exploreDPisoRecursiveStyle(data_graph, query_graph, dpiso_tree,
+//        eval_result = EvaluateQuery::exploreDPisoRecursiveStyle(data_graph, query_graph, dpiso_tree,
 //                                                           edge_matrix, candidates, candidates_count,
 //                                                           weight_array, dpiso_order, output_limit,
 //                                                           call_count);
@@ -375,7 +375,7 @@ int main(int argc, char** argv) {
         spectrum_analysis(data_graph, query_graph, edge_matrix, candidates, candidates_count, output_limit, spectrum, time_limit);
     }
     else if (input_engine_type == "CECI") {
-        embedding_count = EvaluateQuery::exploreCECIStyle(data_graph, query_graph, ceci_tree, candidates, candidates_count, TE_Candidates,
+        eval_result = EvaluateQuery::exploreCECIStyle(data_graph, query_graph, ceci_tree, candidates, candidates_count, TE_Candidates,
                 NTE_Candidates, ceci_order, output_limit, call_count, time_limit);
     }
     else {
@@ -448,7 +448,8 @@ int main(int argc, char** argv) {
     printf("Preprocessing time (seconds): %.4lf\n", NANOSECTOSEC(preprocessing_time_in_ns));
     printf("Total time (seconds): %.4lf\n", NANOSECTOSEC(total_time_in_ns));
     printf("Memory cost (MB): %.4lf\n", BYTESTOMB(memory_cost_in_bytes));
-    printf("#Embeddings: %zu\n", embedding_count);
+    printf("#Embeddings: %zu\n", eval_result.embedding_count);
+    printf("#Visits: %zu\n", eval_result.visit_count);
     printf("Call Count: %zu\n", call_count);
     printf("Per Call Count Time (nanoseconds): %.4lf\n", per_call_count_time);
     std::cout << "End." << std::endl;
@@ -483,6 +484,7 @@ int main(int argc, char** argv) {
             << "total_time_in_ns" << "\t"
             << "memory_cost_in_bytes" << "\t"
             << "embedding_count" << "\t"
+            << "visit_count" << "\t"
             << "call_count" << "\t" 
             << "per_call_count_time" << "\n";
     }
@@ -508,7 +510,8 @@ int main(int argc, char** argv) {
         << preprocessing_time_in_ns << "\t"
         << total_time_in_ns << "\t"
         << memory_cost_in_bytes << "\t"
-        << embedding_count << "\t"
+        << eval_result.embedding_count << "\t"
+        << eval_result.visit_count << "\t"
         << call_count << "\t" 
         << per_call_count_time << "\n";
 
