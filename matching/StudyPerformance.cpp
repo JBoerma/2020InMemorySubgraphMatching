@@ -20,7 +20,7 @@
 #define BYTESTOMB(memory_cost) ((memory_cost)/(double)(1024 * 1024))
 
 size_t enumerate(Graph* data_graph, Graph* query_graph, Edges*** edge_matrix, ui** candidates, ui* candidates_count,
-                ui* matching_order, size_t output_limit) {
+                ui* matching_order, size_t output_limit, size_t time_limit_in_sec) {
     static ui order_id = 0;
 
     order_id += 1;
@@ -28,7 +28,7 @@ size_t enumerate(Graph* data_graph, Graph* query_graph, Edges*** edge_matrix, ui
     auto start = std::chrono::high_resolution_clock::now();
     size_t call_count = 0;
     size_t embedding_count = EvaluateQuery::LFTJ(data_graph, query_graph, edge_matrix, candidates, candidates_count,
-                               matching_order, output_limit, call_count);
+                               matching_order, output_limit, call_count, time_limit_in_sec);
 
     auto end = std::chrono::high_resolution_clock::now();
     double enumeration_time_in_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -57,8 +57,8 @@ void spectrum_analysis(Graph* data_graph, Graph* query_graph, Edges*** edge_matr
         GenerateQueryPlan::printSimplifiedQueryPlan(query_graph, matching_order);
 
         std::future<size_t> future = std::async(std::launch::async, [data_graph, query_graph, edge_matrix, candidates, candidates_count,
-                                                                     matching_order, output_limit](){
-            return enumerate(data_graph, query_graph, edge_matrix, candidates, candidates_count, matching_order, output_limit);
+                                                                     matching_order, output_limit, time_limit_in_sec](){
+            return enumerate(data_graph, query_graph, edge_matrix, candidates, candidates_count, matching_order, output_limit, time_limit_in_sec);
         });
 
         std::cout << "execute...\n";
@@ -90,6 +90,7 @@ int main(int argc, char** argv) {
     std::string input_distribution_file_path = command.getDistributionFilePath();
     std::string input_csr_file_path = command.getCSRFilePath();
     std::string input_performance_results_file_path = command.getPerformanceResultsFilePath();
+    std::string input_onlyCS_mode = command.getOnlyCSMode();
     /**
      * Output the command line information.
      */
@@ -183,6 +184,25 @@ int main(int argc, char** argv) {
         exit(-1);
     }
 
+    /// NSUBS ///
+    if (input_onlyCS_mode == "True"){
+        std::cout << "&&&";
+        std::cout << "{";
+        for (ui i = 0; i < query_graph->getVerticesCount(); ++i) {
+            std::cout << i << ": [";
+
+
+            for (auto j = candidates[i]; j < candidates[i] + candidates_count[i] ; ++j) {
+                std::cout << *j << ", ";
+            }
+            std::cout << "],";
+            // std::sort(candidates[i], candidates[i] + candidates_count[i]);
+        }
+        std::cout << "}";
+        std::cout << "&&&" << std::endl;
+    }
+    /// END NSUBS ///
+
     // Sort the candidates to support the set intersections
     if (input_filter_type != "CECI")
         FilterVertices::sortCandidates(candidates, candidates_count, query_graph->getVerticesCount());
@@ -228,6 +248,7 @@ int main(int argc, char** argv) {
     std::cout << "-----" << std::endl;
     std::cout << "Generate a matching order..." << std::endl;
 
+    std::cout << "&&&";
     start = std::chrono::high_resolution_clock::now();
 
     ui* matching_order = NULL;
@@ -290,6 +311,7 @@ int main(int argc, char** argv) {
         std::cout << "Generate " << spectrum.size() << " matching orders." << std::endl;
     }
 
+    std::cout << "&&&" << std::endl;
     std::cout << "-----" << std::endl;
     std::cout << "Enumerate..." << std::endl;
     size_t output_limit = 0;
@@ -301,6 +323,20 @@ int main(int argc, char** argv) {
         sscanf(input_max_embedding_num.c_str(), "%zu", &output_limit);
     }
 
+    if (input_onlyCS_mode == "True"){
+        delete[] candidates_count;
+        delete[] tso_order;
+        delete[] tso_tree;
+        delete[] cfl_order;
+        delete[] cfl_tree;
+        delete[] dpiso_order;
+        delete[] dpiso_tree;
+        delete[] ceci_order;
+        delete[] ceci_tree;
+        delete query_graph;
+        delete data_graph;
+        return 2;
+    }
 
 #if ENABLE_QFLITER == 1
     EvaluateQuery::qfliter_bsr_graph_ = BuildTable::qfliter_bsr_graph_;
@@ -317,19 +353,19 @@ int main(int argc, char** argv) {
                                                       candidates_count, matching_order, pivots, output_limit, call_count);
     } else if (input_engine_type == "LFTJ") {
         embedding_count = EvaluateQuery::LFTJ(data_graph, query_graph, edge_matrix, candidates, candidates_count,
-                                              matching_order, output_limit, call_count);
+                                              matching_order, output_limit, call_count, time_limit);
     } else if (input_engine_type == "GQL") {
         embedding_count = EvaluateQuery::exploreGraphQLStyle(data_graph, query_graph, candidates, candidates_count,
-                                                             matching_order, output_limit, call_count);
+                                                             matching_order, output_limit, call_count, time_limit);
     } else if (input_engine_type == "QSI") {
         embedding_count = EvaluateQuery::exploreQuickSIStyle(data_graph, query_graph, candidates, candidates_count,
-                                                             matching_order, pivots, output_limit, call_count);
+                                                             matching_order, pivots, output_limit, call_count, time_limit);
     }
     else if (input_engine_type == "DPiso") {
         embedding_count = EvaluateQuery::exploreDPisoStyle(data_graph, query_graph, dpiso_tree,
                                                            edge_matrix, candidates, candidates_count,
                                                            weight_array, dpiso_order, output_limit,
-                                                           call_count);
+                                                           call_count, time_limit);
 //        embedding_count = EvaluateQuery::exploreDPisoRecursiveStyle(data_graph, query_graph, dpiso_tree,
 //                                                           edge_matrix, candidates, candidates_count,
 //                                                           weight_array, dpiso_order, output_limit,
@@ -340,7 +376,7 @@ int main(int argc, char** argv) {
     }
     else if (input_engine_type == "CECI") {
         embedding_count = EvaluateQuery::exploreCECIStyle(data_graph, query_graph, ceci_tree, candidates, candidates_count, TE_Candidates,
-                NTE_Candidates, ceci_order, output_limit, call_count);
+                NTE_Candidates, ceci_order, output_limit, call_count, time_limit);
     }
     else {
         std::cout << "The specified engine type '" << input_engine_type << "' is not supported." << std::endl;

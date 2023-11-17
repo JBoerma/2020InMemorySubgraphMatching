@@ -12,6 +12,7 @@
 #include <bitset>
 
 // Min priority queue.
+// TODO(jboerma) NSubs:: removed "static const"...
 static const auto extendable_vertex_compare = [](std::pair<std::pair<VertexID, ui>, ui> l, std::pair<std::pair<VertexID, ui>, ui> r) {
     if (l.first.second == 1 && r.first.second != 1) {
         return true;
@@ -34,20 +35,20 @@ public:
                                   ui *candidates_count, ui *order, ui *pivot, size_t output_limit_num, size_t &call_count);
 
     static size_t LFTJ(const Graph *data_graph, const Graph *query_graph, Edges ***edge_matrix, ui **candidates, ui *candidates_count,
-                           ui *order, size_t output_limit_num, size_t &call_count);
+                           ui *order, size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec);
 
     static size_t
     exploreGraphQLStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates, ui *candidates_count, ui *order,
-                            size_t output_limit_num, size_t &call_count);
+                            size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec);
 
     static size_t
     exploreQuickSIStyle(const Graph *data_graph, const Graph *query_graph, ui **candidates, ui *candidates_count, ui *order,
-                            ui *pivot, size_t output_limit_num, size_t &call_count);
+                            ui *pivot, size_t output_limit_num, size_t &call_count, size_t time_limit_in_sec);
 
     static size_t exploreDPisoStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
                                     Edges ***edge_matrix, ui **candidates, ui *candidates_count,
                                     ui **weight_array, ui *order, size_t output_limit_num,
-                                    size_t &call_count);
+                                    size_t &call_count, size_t time_limit_in_sec);
 
     static size_t exploreDPisoRecursiveStyle(const Graph *data_graph, const Graph *query_graph, TreeNode *tree,
                                              Edges ***edge_matrix, ui **candidates, ui *candidates_count,
@@ -58,7 +59,7 @@ public:
                                       ui *candidates_count,
                                       std::vector<std::unordered_map<VertexID, std::vector<VertexID>>> &TE_Candidates,
                                       std::vector<std::vector<std::unordered_map<VertexID, std::vector<VertexID>>>> &NTE_Candidates,
-                                      ui *order, size_t &output_limit_num, size_t &call_count);
+                                      ui *order, size_t &output_limit_num, size_t &call_count, size_t time_limit_in_sec);
 
 #if ENABLE_QFLITER == 1
     static BSRGraph*** qfliter_bsr_graph_;

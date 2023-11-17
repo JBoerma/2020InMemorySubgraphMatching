@@ -24,7 +24,8 @@ enum OptionKeyword {
     SpectrumAnalysisOrderNum = 12, // -order_num, The number of matching orders generated
     DistributionFilePath = 13,          // -dis_file, The output path of the distribution array
     CSRFilePath = 14,                   // -csr, The input csr file path
-    PerformanceResultsFilePath = 15
+    PerformanceResultsFilePath = 15,
+    OnlyCSMode = 16, 
 };
 
 class MatchingCommand : public CommandParser{
@@ -99,6 +100,10 @@ public:
 
     std::string getPerformanceResultsFilePath() {
         return options_value[OptionKeyword::PerformanceResultsFilePath] == "" ? "temp.results.tsv" : options_value[OptionKeyword::PerformanceResultsFilePath];
+    }
+
+    std::string getOnlyCSMode() {
+        return options_value[OptionKeyword::OnlyCSMode] == "" ? "True" : options_value[OptionKeyword::OnlyCSMode];
     }
 };
 

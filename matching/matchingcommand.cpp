@@ -22,6 +22,7 @@ MatchingCommand::MatchingCommand(const int argc, char **argv) : CommandParser(ar
     options_key[OptionKeyword::DistributionFilePath] = "-dis_file";
     options_key[OptionKeyword::CSRFilePath] = "-csr";
     options_key[OptionKeyword::PerformanceResultsFilePath] = "-perf";
+    options_key[OptionKeyword::OnlyCSMode] = "-only_CS_mode"; // NSUBS
     processOptions();
 };
 
@@ -73,4 +74,7 @@ void MatchingCommand::processOptions() {
 
     // Performance Results file path
     options_value[OptionKeyword::PerformanceResultsFilePath] = getCommandOption(options_key[OptionKeyword::PerformanceResultsFilePath]);
+
+    //
+    options_value[OptionKeyword::OnlyCSMode] = getCommandOption(options_key[OptionKeyword::OnlyCSMode]);
 }
